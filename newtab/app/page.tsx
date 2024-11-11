@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Search, Plus, X, Sun, Cloud, CloudRain, RefreshCw, ChevronDown, ChevronUp, Loader2, AlertTriangle } from 'lucide-react'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -38,6 +38,10 @@ export default function NewTabPage() {
   const [isTodoExpanded, setIsTodoExpanded] = useState(false)
   const [location, setLocation] = useState<{ lat: number; lon: number } | null>(null)
   const [weatherError, setWeatherError] = useState<string | null>(null)
+  const [showUI, setShowUI] = useState(true)
+
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const backgroundTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
@@ -61,6 +65,46 @@ export default function NewTabPage() {
       fetchWeather(location.lat, location.lon)
     }
   }, [location])
+
+  useEffect(() => {
+    // Set up background rotation timer
+    backgroundTimerRef.current = setInterval(() => {
+      changeBackground()
+    }, 60000) // 60 seconds
+
+    // Set up idle timer
+    const resetIdleTimer = () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+      }
+      setShowUI(true)
+      idleTimerRef.current = setTimeout(() => {
+        setShowUI(false)
+      }, 5000) // 5 seconds
+    }
+
+    // Add event listeners for user interaction
+    const events = ['mousedown', 'keydown', 'touchstart', 'mousemove']
+    events.forEach(event => {
+      window.addEventListener(event, resetIdleTimer)
+    })
+
+    // Initial timer setup
+    resetIdleTimer()
+
+    // Cleanup
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, resetIdleTimer)
+      })
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+      }
+      if (backgroundTimerRef.current) {
+        clearInterval(backgroundTimerRef.current)
+      }
+    }
+  }, [])
 
   const getLocation = () => {
     if (navigator.geolocation) {
@@ -174,12 +218,12 @@ export default function NewTabPage() {
     }
   }
 
-  // const quickLinks = [
-  //   { name: 'Gmail', url: 'https://mail.google.com' },
-  //   { name: 'YouTube', url: 'https://www.youtube.com' },
-  //   { name: 'GitHub', url: 'https://github.com' },
-  //   { name: 'LinkedIn', url: 'https://www.linkedin.com' },
-  // ]
+  const quickLinks = [
+    { name: 'Gmail', url: 'https://mail.google.com' },
+    { name: 'YouTube', url: 'https://www.youtube.com' },
+    { name: 'GitHub', url: 'https://github.com' },
+    { name: 'LinkedIn', url: 'https://www.linkedin.com' },
+  ]
 
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -219,7 +263,7 @@ export default function NewTabPage() {
         />
       )}
       <div className="absolute inset-0 bg-black bg-opacity-30" />
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-8">
+      <div className={`relative z-10 min-h-screen flex flex-col items-center justify-center p-8 transition-opacity duration-300 ${showUI ? 'opacity-100' : 'opacity-0'}`}>
         <Button
           variant="outline"
           size="icon"
@@ -268,7 +312,7 @@ export default function NewTabPage() {
             </form>
           </div>
 
-          {/* Quick Links (only visible when not searching)
+          {/* Quick Links (only visible when not searching) */}
           {searchQuery === '' && (
             <div className="flex flex-wrap justify-center gap-4">
               {quickLinks.map((link) => (
@@ -281,7 +325,7 @@ export default function NewTabPage() {
                 </a>
               ))}
             </div>
-          )} */}
+          )}
 
           {/* Weather Widget */}
           <div className="flex items-center space-x-2 bg-white/20 backdrop-blur-md rounded-lg p-4 text-white">
@@ -351,4 +395,4 @@ export default function NewTabPage() {
       </div>
     </div>
   )
-}
+        }
