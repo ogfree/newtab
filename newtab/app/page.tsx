@@ -174,12 +174,12 @@ export default function NewTabPage() {
     }
   }
 
-  const quickLinks = [
-    { name: 'Gmail', url: 'https://mail.google.com' },
-    { name: 'YouTube', url: 'https://www.youtube.com' },
-    { name: 'GitHub', url: 'https://github.com' },
-    { name: 'LinkedIn', url: 'https://www.linkedin.com' },
-  ]
+  // const quickLinks = [
+  //   { name: 'Gmail', url: 'https://mail.google.com' },
+  //   { name: 'YouTube', url: 'https://www.youtube.com' },
+  //   { name: 'GitHub', url: 'https://github.com' },
+  //   { name: 'LinkedIn', url: 'https://www.linkedin.com' },
+  // ]
 
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -268,7 +268,7 @@ export default function NewTabPage() {
             </form>
           </div>
 
-          {/* Quick Links (only visible when not searching) */}
+          {/* Quick Links (only visible when not searching)
           {searchQuery === '' && (
             <div className="flex flex-wrap justify-center gap-4">
               {quickLinks.map((link) => (
@@ -281,7 +281,7 @@ export default function NewTabPage() {
                 </a>
               ))}
             </div>
-          )}
+          )} */}
 
           {/* Weather Widget */}
           <div className="flex items-center space-x-2 bg-white/20 backdrop-blur-md rounded-lg p-4 text-white">
