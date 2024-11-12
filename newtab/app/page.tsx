@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Search, Plus, X, Sun, Cloud, CloudRain, RefreshCw, ChevronDown, ChevronUp, Loader2, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Search, Plus, X, Sun, Cloud, CloudRain, ChevronDown, ChevronUp, Loader2, AlertTriangle } from 'lucide-react'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import Image from 'next/image'
@@ -24,6 +24,8 @@ const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 const auth = getAuth(app)
 
+const DEFAULT_LOCATION = { lat: 23.1222197, lon: 88.2169016 }
+
 export default function NewTabPage() {
   const [time, setTime] = useState(new Date())
   const [searchQuery, setSearchQuery] = useState('')
@@ -32,7 +34,6 @@ export default function NewTabPage() {
   const [newTodo, setNewTodo] = useState('')
   const [weather, setWeather] = useState<{ temp: number; condition: 'sunny' | 'cloudy' | 'rainy' } | null>(null)
   const [background, setBackground] = useState('')
-  const [imageUrls, setImageUrls] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
   const [isTodoExpanded, setIsTodoExpanded] = useState(false)
@@ -41,7 +42,7 @@ export default function NewTabPage() {
   const [showUI, setShowUI] = useState(true)
 
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const backgroundTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const reloadTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
@@ -49,7 +50,7 @@ export default function NewTabPage() {
   }, [])
 
   useEffect(() => {
-    fetchImages()
+    fetchBackgroundImage()
     getLocation()
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setUser(user)
@@ -63,24 +64,37 @@ export default function NewTabPage() {
   useEffect(() => {
     if (location) {
       fetchWeather(location.lat, location.lon)
+    } else {
+      fetchWeather(DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lon)
     }
   }, [location])
 
   useEffect(() => {
-    // Set up background rotation timer
-    backgroundTimerRef.current = setInterval(() => {
-      changeBackground()
-    }, 60000) // 60 seconds
+    const preloadPage = () => {
+      const link = document.createElement('link')
+      link.rel = 'preload'
+      link.as = 'document'
+      link.href = window.location.href
+      document.head.appendChild(link)
+    }
 
-    // Set up idle timer
     const resetIdleTimer = () => {
       if (idleTimerRef.current) {
         clearTimeout(idleTimerRef.current)
+      }
+      if (reloadTimerRef.current) {
+        clearTimeout(reloadTimerRef.current)
       }
       setShowUI(true)
       idleTimerRef.current = setTimeout(() => {
         setShowUI(false)
       }, 5000) // 5 seconds
+      reloadTimerRef.current = setTimeout(() => {
+        preloadPage()
+        setTimeout(() => {
+          window.location.reload()
+        }, 2000) // Wait 1 second after preloading before reloading
+      }, 35000) // 35 seconds
     }
 
     // Add event listeners for user interaction
@@ -100,8 +114,8 @@ export default function NewTabPage() {
       if (idleTimerRef.current) {
         clearTimeout(idleTimerRef.current)
       }
-      if (backgroundTimerRef.current) {
-        clearInterval(backgroundTimerRef.current)
+      if (reloadTimerRef.current) {
+        clearTimeout(reloadTimerRef.current)
       }
     }
   }, [])
@@ -117,26 +131,28 @@ export default function NewTabPage() {
         },
         (error) => {
           console.error("Error getting location:", error)
-          setWeatherError("Unable to get location")
+          setWeatherError("Unable to get location, using default")
+          setLocation(DEFAULT_LOCATION)
         }
       )
     } else {
       console.error("Geolocation is not supported by this browser.")
-      setWeatherError("Geolocation not supported")
+      setWeatherError("Geolocation not supported, using default")
+      setLocation(DEFAULT_LOCATION)
     }
   }
 
-  const fetchImages = async () => {
+  const fetchBackgroundImage = async () => {
     try {
       const response = await fetch('/api/background-images')
       const data = await response.json()
       
       if (data.images && data.images.length > 0) {
-        setImageUrls(data.images)
-        changeBackground(data.images)
+        const randomImage = data.images[Math.floor(Math.random() * data.images.length)]
+        setBackground(randomImage)
       }
     } catch (error) {
-      console.error('Error fetching images:', error)
+      console.error('Error fetching background image:', error)
     } finally {
       setIsLoading(false)
     }
@@ -160,16 +176,6 @@ export default function NewTabPage() {
       setWeather(null)
     }
   }
-
-  const changeBackground = useCallback((images: string[] = imageUrls) => {
-    if (images.length > 0) {
-      let newBackground
-      do {
-        newBackground = images[Math.floor(Math.random() * images.length)]
-      } while (newBackground === background && images.length > 1)
-      setBackground(newBackground)
-    }
-  }, [background, imageUrls])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -264,17 +270,6 @@ export default function NewTabPage() {
       )}
       <div className="absolute inset-0 bg-black bg-opacity-30" />
       <div className={`relative z-10 min-h-screen flex flex-col items-center justify-center p-8 transition-opacity duration-300 ${showUI ? 'opacity-100' : 'opacity-0'}`}>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => changeBackground()}
-          className="absolute top-4 right-4 text-white hover:bg-white/20"
-          disabled={isLoading}
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          <span className="sr-only">Change background</span>
-        </Button>
-
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center space-y-8">
           {/* Clock */}
           <div className="text-6xl font-bold text-white drop-shadow-lg">
