@@ -395,4 +395,4 @@ export default function NewTabPage() {
       </div>
     </div>
   )
-        }
+}
